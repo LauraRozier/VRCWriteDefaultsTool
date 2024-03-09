@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -17,26 +19,21 @@ namespace VRCWriteDefaultsTool.Editor
 
         private VRCAvatarDescriptor _avatarDescriptor = null;
         private Vector2 _scrollPosition = Vector2.zero;
-        private StringBuilder _resultText = new StringBuilder();
+        private readonly StringBuilder _resultText = new StringBuilder();
 
-        void OnGUI()
-        {
+        void OnGUI() {
             EditorGUILayout.LabelField("Configure IFacialMocap BlendShapes", EditorStyles.boldLabel);
             EditorGUILayout.Space(CGUISpacing);
 
-            EditorGUI.BeginChangeCheck();
-            {
-                _avatarDescriptor = (VRCAvatarDescriptor)EditorGUILayout.ObjectField(
-                    "VRC Avatar Descriptor",
-                    _avatarDescriptor,
-                    typeof(VRCAvatarDescriptor),
-                    true);
-            }
-            EditorGUI.EndChangeCheck();
-
+            _avatarDescriptor = (VRCAvatarDescriptor)EditorGUILayout.ObjectField(
+                "VRC Avatar Descriptor",
+                _avatarDescriptor,
+                typeof(VRCAvatarDescriptor),
+                true
+            );
             EditorGUILayout.Space(CGUISpacing);
-
             ProcessAvatarDescriptor();
+
             _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition, false, true);
             {
                 EditorGUILayout.TextArea(_resultText.ToString(), EditorStyles.textField, GUILayout.ExpandHeight(true));
@@ -44,79 +41,64 @@ namespace VRCWriteDefaultsTool.Editor
             EditorGUILayout.EndScrollView();
         }
 
-        private void ProcessAvatarDescriptor()
-        {
+        private void ProcessAvatarDescriptor() {
             _resultText.Clear();
 
-            if (_avatarDescriptor == null)
-            {
+            if (_avatarDescriptor == null) {
                 _resultText.Append("No VRC Avatar Descriptor selected");
                 return;
             }
 
-            string result = string.Empty;
+            var layers = new List<CustomAnimLayer>(_avatarDescriptor.baseAnimationLayers);
+            layers.AddRange(_avatarDescriptor.specialAnimationLayers);
 
-            foreach (var layer in _avatarDescriptor.baseAnimationLayers)
-            {
+            foreach (var layer in layers) {
                 ProcessAnimatorController(layer);
-                _resultText.AppendLine();
-            }
-
-            foreach (var layer in _avatarDescriptor.specialAnimationLayers)
-            {
-                ProcessAnimatorController(layer);
-                _resultText.AppendLine();
             }
         }
 
-        private void ProcessAnimatorController(CustomAnimLayer layer)
-        {
+        private void ProcessAnimatorController(CustomAnimLayer layer) {
             _resultText.Append($"Layer \"{layer.type}\" - ");
             var animCtrl = layer.animatorController as AnimatorController;
 
-            if (animCtrl == null)
-            {
-                _resultText.AppendLine($"No controller assigned");
+            if (animCtrl == null) {
+                _resultText.AppendLine($"No controller assigned {Environment.NewLine}");
                 return;
             }
 
             _resultText.AppendLine($"Controller: {animCtrl.name}");
 
-            foreach (var ctrlLayer in animCtrl.layers)
-            {
+            foreach (var ctrlLayer in animCtrl.layers) {
                 _resultText.AppendLine($"  Layer: {ctrlLayer.name}");
 
                 if (!ScanStateMachineForWD(ctrlLayer.stateMachine))
-                    _resultText.AppendLine($"    - No WD found");
+                    _resultText.AppendLine("    - No WD found");
             }
+
+            _resultText.AppendLine();
         }
 
-        private bool ScanStateMachineForWD(AnimatorStateMachine stateMachine, string path = "")
-        {
+        private bool ScanStateMachineForWD(AnimatorStateMachine stateMachine, string path = "") {
             bool result = false;
             
-            foreach (ChildAnimatorState childState in stateMachine.states)
-            {
+            foreach (ChildAnimatorState childState in stateMachine.states) {
                 if (!childState.state.writeDefaultValues)
                     continue;
 
-                // Ignore blend trees using the Direct blend type, because disabling WD on these reportedly causes side-effects.
-                BlendTree blendTree = childState.state.motion as BlendTree;
+                // Ignore blend trees using the Direct blend type
+                var blendTree = childState.state.motion as BlendTree;
 
-                if (blendTree == null || blendTree.blendType != BlendTreeType.Direct)
-                {
+                if (blendTree == null || blendTree.blendType != BlendTreeType.Direct) {
                     _resultText.AppendLine($"    - WD ON > {path}{childState.state.name}");
-                    result = true; // Found any state that writes defaults.
+                    result = true;
                 }
             }
 
-            // This state machine could itself contain nested state machines. Recursively search those too.
-            foreach (ChildAnimatorStateMachine childStateMachine in stateMachine.stateMachines)
-            {
+            // This state machine could itself contain nested state machines, recursively search those too.
+            foreach (ChildAnimatorStateMachine childStateMachine in stateMachine.stateMachines) {
                 var machine = childStateMachine.stateMachine;
-                bool subResult = ScanStateMachineForWD(machine, $"{path}{machine.name}.");
 
-                if (subResult)
+                if (ScanStateMachineForWD(machine, $"{path}{machine.name}."))
                     result = true;
             }
 

@@ -22,7 +22,7 @@ namespace VRCWriteDefaultsTool.Editor
         private readonly StringBuilder _resultText = new StringBuilder();
 
         void OnGUI() {
-            EditorGUILayout.LabelField("Configure IFacialMocap BlendShapes", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Write Defaults locator Tool", EditorStyles.boldLabel);
             EditorGUILayout.Space(CGUISpacing);
 
             _avatarDescriptor = (VRCAvatarDescriptor)EditorGUILayout.ObjectField(
@@ -80,7 +80,7 @@ namespace VRCWriteDefaultsTool.Editor
 
         private bool ScanStateMachineForWD(AnimatorStateMachine stateMachine, string path = "") {
             bool result = false;
-            
+
             foreach (ChildAnimatorState childState in stateMachine.states) {
                 if (!childState.state.writeDefaultValues)
                     continue;

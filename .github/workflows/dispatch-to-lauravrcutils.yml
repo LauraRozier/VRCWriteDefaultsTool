@@ -24,7 +24,7 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.LauraVRCUtils_PAT }}
-          repository: username/my-repo
+          repository: LauraRozier/LauraVRCUtils
           event-type: update-listing
           client-payload: '{"ref":"${{ github.ref }}","sha":"${{ github.sha }}","inputs":{}}'
 #        run: |
